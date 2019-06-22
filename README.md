@@ -1,7 +1,8 @@
 ESP32 Bluetooth Low Energie presence detector
 ========================
 
-Scans nearby BLE devices, and publishes them over http and/or mqtt.
+Scans nearby BLE devices, and publishes them over http and/or mqtt.  
+>[There is a example node backend as well](https://github.com/sonofabitcodes/ble-presence-detector-backend-example)
 
 #### Hardware requirements
 * ESP32
