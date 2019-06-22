@@ -22,7 +22,7 @@ make menuconfig
 ```
 
 * Set serial port under Serial Flasher Options.
-* Set Wifi under BLE and configure the device under Presence Detector Configuration > WIFI
+* Set Wifi and configure the device under BLE Presence Detector Configuration > WIFI
 
 #### Build and Flash
 
