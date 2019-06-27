@@ -40,17 +40,17 @@
 
 #include "cJSON.h"
 
-#if (LOG_LEVEL_NONE)
+#if (CONFIG_LOG_LEVEL_NONE)
 #define LOG_LOCAL_LEVEL ESP_LOG_NONE
-#elif (LOG_LEVEL_ERROR)
+#elif (CONFIG_LOG_LEVEL_ERROR)
 #define LOG_LOCAL_LEVEL ESP_LOG_ERROR
-#elif (LOG_LEVEL_WARN)
+#elif (CONFIG_LOG_LEVEL_WARN)
 #define LOG_LOCAL_LEVEL ESP_LOG_WARN
-#elif (LOG_LEVEL_INFO)
+#elif (CONFIG_LOG_LEVEL_INFO)
 #define LOG_LOCAL_LEVEL ESP_LOG_INFO
-#elif (LOG_LEVEL_DEBUG)
+#elif (CONFIG_LOG_LEVEL_DEBUG)
 #define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
-#elif (LOG_LEVEL_VERBOSE)
+#elif (CONFIG_LOG_LEVEL_VERBOSE)
 #define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
 #endif
 #include "esp_log.h"
@@ -66,8 +66,10 @@ static const char *TAG = "PRESENCE_DETECTOR";
 static EventGroupHandle_t wifi_event_group;
 const static int CONNECTED_BIT = BIT0;
 
-esp_mqtt_client_handle_t mqtt_client;
+esp_mqtt_client_handle_t mqtt_client = NULL;
 static bool mqtt_connected = false;
+
+static bool started = false;
 
 static void wifi_init(void);
 static esp_err_t wifi_event_handler(void *ctx, system_event_t *event);
@@ -121,7 +123,7 @@ static void wifi_init(void)
     ESP_ERROR_CHECK(esp_event_loop_init(wifi_event_handler, NULL));
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-    ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
+    ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_FLASH));
     wifi_config_t wifi_config = {
         .sta = {
             .ssid = CONFIG_WIFI_SSID,
@@ -151,8 +153,9 @@ static esp_err_t wifi_event_handler(void *ctx, system_event_t *event)
         break;
     case SYSTEM_EVENT_STA_DISCONNECTED:
         ESP_LOGD(TAG, "Wifi connection lost! Try to reconnect...");
-        xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
         esp_wifi_connect();
+        xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
+        esp_restart();
         break;
     default:
         break;
@@ -163,6 +166,7 @@ static esp_err_t wifi_event_handler(void *ctx, system_event_t *event)
 static void register_on_server(void)
 {
 #if (CONFIG_GET_URLS_FROM_BROADCAST)
+    if(started && mqtt_client != NULL) return;
     ESP_LOGI(TAG, "Sending register request...");
 
     char *message = "Register request from BLE Presence Detector";
@@ -325,6 +329,7 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
     {
     case ESP_GAP_BLE_SCAN_PARAM_SET_COMPLETE_EVT:
     {
+        started = true,
         start_ble_scan();
         break;
     }
@@ -523,7 +528,7 @@ static void add_or_update_device(char *mac, char *name, int rssi)
     }
     else
     {
-        ESP_LOGD(TAG, "Adding device device to device tree...\n");
+        ESP_LOGD(TAG, "Adding device device to device list...\n");
     }
 
     cJSON *device = cJSON_CreateObject();
